@@ -137,8 +137,7 @@ def fetch_news_with_retries(stock, retries=3, delay=5):
     return []
 
 # Streamlit app
-st.title("STOCKmood V0.1b")
-st.write('<p style="color: green; font-weight: bold;">KS Testing Private</p>', unsafe_allow_html=True)
+st.title("Stock Analysis App")
 
 selected_stock = st.selectbox(
     "Select a stock",
@@ -147,7 +146,7 @@ selected_stock = st.selectbox(
 
 if selected_stock:
     with st.spinner('Analyzing...'):
-        time.sleep(1)  # Simulate a delay for the analysis
+        time.sleep(6)  # Simulate a delay for the analysis
 
     # Get current price and time
     ticker = yf.Ticker(selected_stock)
@@ -189,7 +188,7 @@ if selected_stock:
     elif aggregate_sentiment <= -0.05:
         st.write('<font size="5" color="red">**Negative**</font>', unsafe_allow_html=True)
     else:
-        st.write('<font size="5" color="cyan">**Neutral**</font>', unsafe_allow_html=True)
+        st.write('<font size="5" color="blue">**Neutral**</font>', unsafe_allow_html=True)
 
     # Display news articles with sentiment, reasons, and summaries
     st.write('News Articles:')
