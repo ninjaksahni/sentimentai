@@ -4,6 +4,8 @@ plotly
 transformers
 requests
 beautifulsoup4
-tensorflow
+tensorflow<2.11
 torch
 torchvision
+transformers
+tf-keras
