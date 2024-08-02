@@ -47,7 +47,7 @@ def scrape_news(stock):
         st.write(f"Error scraping news: {e}")
         news_items = []
 
-    return news_items[:20]  # Return the first 20 news articles
+    return news_items[:7]  # Return the first 20 news articles
 
 def extract_real_link(link):
     # Helper function to clean and fix the link if necessary
