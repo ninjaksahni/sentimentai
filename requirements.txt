@@ -9,4 +9,3 @@ torch
 torchvision
 transformers
 tf-keras
-urllib
