@@ -17,7 +17,8 @@ descriptions = {
     'RELIANCE.NS': 'Reliance Industries Limited is an Indian multinational conglomerate company, and one of the largest companies in India.',
     'TSLA': 'Tesla, Inc. is an American electric vehicle and clean energy company.',
     'NVDA': 'NVIDIA Corporation is an American multinational technology company, which designs graphics processing units for the gaming and professional markets.',
-    'AAPL': 'Apple Inc. is an American multinational technology company that designs, manufactures, and markets consumer electronics, software, and online services.'
+    'AAPL': 'Apple Inc. is an American multinational technology company that designs, manufactures, and markets consumer electronics, software, and online services.',
+    'ZOMATO.NS': 'Zomato Limited is an Indian multinational restaurant aggregator and food delivery service.'
 }
 
 def scrape_news(stock):
@@ -47,7 +48,7 @@ def scrape_news(stock):
         st.write(f"Error scraping news: {e}")
         news_items = []
 
-    return news_items[:7]  # Return the first 20 news articles
+    return news_items[:20]  # Return the first 20 news articles
 
 def extract_real_link(link):
     # Helper function to clean and fix the link if necessary
@@ -140,7 +141,7 @@ st.title("Stock Analysis App")
 
 selected_stock = st.selectbox(
     "Select a stock",
-    ['TSLA', 'NVDA', 'AAPL', 'ZOMATO.NS', 'INFY.NS', 'TCS.NS', 'RELIANCE.NS']
+    ['INFY.NS', 'TCS.NS', 'RELIANCE.NS', 'TSLA', 'NVDA', 'AAPL', 'ZOMATO.NS']
 )
 
 if selected_stock:
