@@ -4,3 +4,6 @@ plotly
 transformers
 requests
 beautifulsoup4
+tensorflow
+torch
+torchvision
