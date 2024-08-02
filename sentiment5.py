@@ -140,7 +140,7 @@ st.title("Stock Analysis App")
 
 selected_stock = st.selectbox(
     "Select a stock",
-    ['INFY.NS', 'TCS.NS', 'RELIANCE.NS', 'TSLA', 'NVDA', 'AAPL']
+    ['TSLA', 'NVDA', 'AAPL', 'ZOMATO.NS', 'INFY.NS', 'TCS.NS', 'RELIANCE.NS']
 )
 
 if selected_stock:
