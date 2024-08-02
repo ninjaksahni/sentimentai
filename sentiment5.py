@@ -137,7 +137,7 @@ def fetch_news_with_retries(stock, retries=3, delay=5):
     return []
 
 # Streamlit app
-st.title("Stock Analysis App")
+st.title("STOCKmood Private KS")
 
 selected_stock = st.selectbox(
     "Select a stock",
