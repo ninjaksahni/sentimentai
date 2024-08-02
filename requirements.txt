@@ -9,5 +9,4 @@ torch
 torchvision
 transformers
 tf-keras
-urllib.parse
 urllib
