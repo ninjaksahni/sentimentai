@@ -1,104 +1,123 @@
-import streamlit as st
 import yfinance as yf
-import plotly.graph_objects as go
-from transformers import pipeline, BertTokenizer
-from datetime import datetime
-import time
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs
+import streamlit as st
+from transformers import pipeline
+import plotly.graph_objects as go
+from datetime import datetime
+import time  # Import the time module
 
-# Initialize the BERT tokenizer and summarization pipeline
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+# Initialize sentiment analysis pipeline
 sentiment_pipeline = pipeline("sentiment-analysis")
-summarization_pipeline = pipeline("summarization")
 
-def truncate_text(text, max_length=512):
-    tokens = tokenizer.encode(text, add_special_tokens=False)
-    if len(tokens) > max_length:
-        tokens = tokens[:max_length]
-    return tokenizer.decode(tokens, skip_special_tokens=True)
+# Define descriptions
+descriptions = {
+    'INFY.NS': 'Infosys Limited is an Indian multinational corporation that provides business consulting, information technology, and outsourcing services.',
+    'TCS.NS': 'Tata Consultancy Services Limited is an Indian multinational information technology services and consulting company.',
+    'RELIANCE.NS': 'Reliance Industries Limited is an Indian multinational conglomerate company, and one of the largest companies in India.',
+    'TSLA': 'Tesla, Inc. is an American electric vehicle and clean energy company.',
+    'NVDA': 'NVIDIA Corporation is an American multinational technology company, which designs graphics processing units for the gaming and professional markets.',
+    'AAPL': 'Apple Inc. is an American multinational technology company that designs, manufactures, and markets consumer electronics, software, and online services.'
+}
 
-def split_text(text, max_length=512):
-    tokens = tokenizer.encode(text, add_special_tokens=False)
-    chunks = [tokens[i:i + max_length] for i in range(0, len(tokens), max_length)]
-    return [tokenizer.decode(chunk, skip_special_tokens=True) for chunk in chunks]
-
-def extract_article_content(link):
+def scrape_news(stock):
+    ticker = yf.Ticker(stock)
     try:
-        response = requests.get(link)
+        news = ticker.news
+        if not news:
+            st.write("No news available.")
+            return []
+    except Exception as e:
+        st.write(f"Error fetching news: {e}")
+        return []
+
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    google_news_url = f"https://www.google.com/search?q={stock}+stock+news&tbm=nws"
+    try:
+        response = requests.get(google_news_url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        news_items = []
+        for result in soup.find_all('div', attrs={'class': 'BNeawe vvjwJb AP7Wnd'}):
+            title = result.get_text()
+            link = result.find_parent('a')['href']
+            link = extract_real_link(link)
+            if link:
+                news_items.append({'title': title, 'link': link})
+    except Exception as e:
+        st.write(f"Error scraping news: {e}")
+        news_items = []
+
+    return news_items[:20]  # Return the first 20 news articles
+
+def extract_real_link(link):
+    # Helper function to clean and fix the link if necessary
+    if link.startswith('/'):
+        return f"https://www.google.com{link}"
+    return link
+
+def extract_article_content(url):
+    try:
+        response = requests.get(url)
         soup = BeautifulSoup(response.text, 'html.parser')
         paragraphs = soup.find_all('p')
         content = ' '.join([para.get_text() for para in paragraphs])
         return content, soup
-    except Exception:
+    except Exception as e:
+        st.write(f"Error extracting article content: {e}")
         return "", None
 
-def extract_article_date(soup):
-    try:
-        date_meta = soup.find('meta', {'property': 'article:published_time'})
-        if date_meta:
-            return datetime.fromisoformat(date_meta['content']).strftime('%Y-%m-%d')
-        date_meta = soup.find('time')
-        if date_meta:
-            return date_meta.get_text().strip()
-    except Exception:
-        return "Unknown"
-    return "Unknown"
-
-def extract_real_link(google_news_url):
-    try:
-        parsed_url = urlparse(google_news_url)
-        if parsed_url.netloc != 'www.google.com':
-            return google_news_url
-        
-        query_params = parse_qs(parsed_url.query)
-        return query_params.get('url', [None])[0]
-    except Exception:
-        return google_news_url
+def split_text(text, max_length=1000):
+    # Split text into chunks for sentiment analysis
+    return [text[i:i+max_length] for i in range(0, len(text), max_length)]
 
 def summarize_text(text):
-    try:
-        # Summarize the text and return the summary
-        summary = summarization_pipeline(text, max_length=150, min_length=30, do_sample=False)
-        return summary[0]['summary_text']
-    except Exception:
-        return "Summary not available."
+    # Placeholder summary function, should be replaced with an actual summarizer
+    return text[:500] + "..." if len(text) > 500 else text
+
+def extract_article_date(soup):
+    # Extract the publication date of the article if available
+    date_tag = soup.find('time')
+    return date_tag.get('datetime') if date_tag else 'Unknown'
 
 def sentiment_analysis(articles):
     aggregate_sentiment = 0
     sentiments = []
     if not articles:
         return aggregate_sentiment, sentiments
-    
+
     for article in articles:
         title = article.get('title', '')
         link = extract_real_link(article.get('link', ''))
         if not title or not link:
             continue
-        
-        # Extract article content
-        article_content, soup = extract_article_content(link)
-        if not article_content or not soup:
-            continue
 
-        # Split and analyze the article content
-        chunks = split_text(article_content)
-        
+        # Extract article content
         try:
-            chunk_sentiments = []
-            for chunk in chunks:
-                sentiment = sentiment_pipeline(chunk)[0]
-                score = sentiment['score'] if sentiment['label'] == 'POSITIVE' else -sentiment['score']
-                chunk_sentiments.append(score)
+            article_content, soup = extract_article_content(link)
+            if not article_content or not soup:
+                continue
+
+            # Split and analyze the article content
+            chunks = split_text(article_content)
             
-            # Average the sentiment scores for the chunks
-            avg_score = sum(chunk_sentiments) / len(chunk_sentiments)
-            aggregate_sentiment += avg_score
-            article_date = extract_article_date(soup)
-            summary = summarize_text(article_content)
-            sentiments.append((title, avg_score, article_date, summary, link))
-        except Exception:
+            try:
+                chunk_sentiments = []
+                for chunk in chunks:
+                    sentiment = sentiment_pipeline(chunk)[0]
+                    score = sentiment['score'] if sentiment['label'] == 'POSITIVE' else -sentiment['score']
+                    chunk_sentiments.append(score)
+                
+                # Average the sentiment scores for the chunks
+                avg_score = sum(chunk_sentiments) / len(chunk_sentiments)
+                aggregate_sentiment += avg_score
+                article_date = extract_article_date(soup)
+                summary = summarize_text(article_content)
+                sentiments.append((title, avg_score, article_date, summary, link))
+            except Exception as e:
+                st.write(f"Error analyzing sentiment: {e}")
+                continue
+        except Exception as e:
+            st.write(f"Error extracting article content: {e}")
             continue
     
     if articles:
@@ -106,62 +125,25 @@ def sentiment_analysis(articles):
     
     return aggregate_sentiment, sentiments
 
-def scrape_news(stock):
-    ticker = yf.Ticker(stock)
-    news = ticker.news
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    google_news_url = f"https://www.google.com/search?q={stock}+stock+news&tbm=nws"
-    try:
-        response = requests.get(google_news_url, headers=headers)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        for result in soup.find_all('div', attrs={'class': 'BNeawe vvjwJb AP7Wnd'}):
-            title = result.get_text()
-            link = result.find_parent('a')['href']
-            # Google News links need extraction
-            link = extract_real_link(link)
-            if link:
-                news.append({'title': title, 'link': link})
-    except Exception:
-        pass
-    return news[:20]  # Return the first 20 news articles
+def fetch_news_with_retries(stock, retries=3, delay=5):
+    for _ in range(retries):
+        try:
+            return scrape_news(stock)
+        except Exception as e:
+            st.write(f"Attempt failed: {e}. Retrying in {delay} seconds...")
+            time.sleep(delay)
+    st.write("Failed to fetch news after multiple attempts.")
+    return []
 
-# Create a Streamlit app
-st.title('SENTIMENTai KS V0.3')
+# Streamlit app
+st.title("Stock Analysis App")
 
-# Get stock descriptions from Yahoo Finance dynamically
-stocks = ['INFY.NS', 'TCS.NS', 'RELIANCE.NS', 'TSLA', 'NVDA', 'AAPL']
-descriptions = {}
+selected_stock = st.selectbox(
+    "Select a stock",
+    ['INFY.NS', 'TCS.NS', 'RELIANCE.NS', 'TSLA', 'NVDA', 'AAPL']
+)
 
-for stock in stocks:
-    ticker = yf.Ticker(stock)
-    description = ticker.info.get("longBusinessSummary", "Description not available")
-    descriptions[stock] = description
-
-# Main content
-st.write("Welcome to SENTIMENTai KS V0.3! Select a stock from the buttons below to view detailed analysis and sentiment.")
-
-# Stock buttons in one row
-col1, col2, col3, col4, col5, col6 = st.columns(6)
-with col1:
-    if st.button('INFY.NS'):
-        selected_stock = 'INFY.NS'
-with col2:
-    if st.button('TCS.NS'):
-        selected_stock = 'TCS.NS'
-with col3:
-    if st.button('RELIANCE.NS'):
-        selected_stock = 'RELIANCE.NS'
-with col4:
-    if st.button('TSLA'):
-        selected_stock = 'TSLA'
-with col5:
-    if st.button('NVDA'):
-        selected_stock = 'NVDA'
-with col6:
-    if st.button('AAPL'):
-        selected_stock = 'AAPL'
-
-if 'selected_stock' in locals():
+if selected_stock:
     with st.spinner('Analyzing...'):
         time.sleep(6)  # Simulate a delay for the analysis
 
@@ -193,7 +175,7 @@ if 'selected_stock' in locals():
     st.plotly_chart(fig2)
 
     # Scrape news
-    articles = scrape_news(selected_stock)
+    articles = fetch_news_with_retries(selected_stock)
 
     # Perform sentiment analysis
     aggregate_sentiment, sentiments = sentiment_analysis(articles)
@@ -215,5 +197,5 @@ if 'selected_stock' in locals():
         st.write(f'Sentiment: {score:.2f}')
         st.write(f"Date: {date}")
         st.write(f"Summary: <font color='orange'>{summary}</font>", unsafe_allow_html=True)
-       
-        st.write(f"[Read Article]({link})")
+        st.write(f"Reason: {'Positive' if score > 0 else 'Negative' if score < 0 else 'Neutral'} sentiment detected based on the content of the article.")
+        st.write(f"[Read more]({link})")
